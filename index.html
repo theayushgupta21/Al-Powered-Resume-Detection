@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AI-Powered Resume Detection System</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet" />
+<style>
+  /* Reset and base */
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    font-family: 'Inter', sans-serif;
+    background-color: #ffffff;
+    color: #374151;
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    background: #111827;
+    color: white;
+    padding: 1rem 2rem;
+    font-weight: 800;
+    font-size: 1.5rem;
+    text-align: center;
+    letter-spacing: 0.05em;
+  }
+  main {
+    flex-grow: 1;
+    max-width: 900px;
+    margin: 2rem auto 3rem auto;
+    padding: 0 1rem;
+  }
+  h2, h3, h4 {
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    color: #111827;
+  }
+  p, label {
+    color: #6b7280;
+  }
+  section.card {
+    background: #f9fafb;
+    box-shadow: rgba(0,0,0,0.05) 0px 4px 12px;
+    border-radius: 12px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+  }
+  label {
+    display: block;
+    margin-bottom: 0.25rem;
+    font-weight: 600;
+  }
+  input[type="file"] {
+    display: block;
+    margin-bottom: 0.25rem;
+  }
+  .file-info {
+    font-size: 0.85rem;
+    color: #4b5563;
+    margin-bottom: 1rem;
+  }
+  button {
+    background-color: #111827;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    padding: 12px 24px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 1rem;
+    min-width: 140px;
+    height: 44px;
+    transition: background-color 0.3s ease;
+  }
+  button:hover {
+    background-color: #4b5563;
+  }
+  .material-icons-outlined {
+    vertical-align: middle;
+    font-size: 20px;
+    color: #6b7280;
+    user-select: none;
+  }
+  #resultSummary {
+    font-weight: 700;
+    font-size: 1.2rem;
+    margin-top: 0.5rem;
+  }
+  #resultSummary.good-fit {
+    color: #10B981;
+  }
+  #resultSummary.not-fit {
+    color: #EF4444;
+  }
+  #parsedText, #highlightedText {
+    background: white;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    padding: 1rem;
+    white-space: pre-wrap;
+    max-height: 330px;
+    overflow-y: auto;
+    font-family: monospace;
+    color: #374151;
+  }
+  #keywordsList {
+    list-style: none;
+    padding-left: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+  #keywordsList li {
+    background: linear-gradient(135deg, #4f46e5, #06b6d4);
+    color: white;
+    padding: 0.4rem 0.8rem;
+    border-radius: 20px;
+    font-weight: 600;
+    cursor: default;
+    font-size: 0.9rem;
+  }
+  #searchArea input[type="text"] {
+    padding: 0.6rem 1rem;
+    border: 1px solid #d1d5db;
+    border-radius: 12px;
+    font-size: 1rem;
+    width: 100%;
+    max-width: 300px;
+    margin-bottom: 1rem;
+  }
+  #loadingSpinner {
+    display: none;
+    margin-top: 1rem;
+    text-align: center;
+  }
+  #loadingSpinner.visible {
+    display: block;
+  }
+  #loadingSpinner svg {
+    width: 48px;
+    height: 48px;
+    color: #4b5563;
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin {
+    0%{transform:rotate(0deg);}
+    100%{transform:rotate(360deg);}
+  }
+  footer {
+    text-align: center;
+    color: #9CA3AF;
+    padding: 2rem 0;
+    font-size: 0.9rem;
+  }
+  /* Responsive */
+  @media (max-width: 768px) {
+    main {
+      margin: 1rem;
+      padding: 0 0.5rem;
+    }
+    #keywordsList li {
+      font-size: 0.85rem;
+      padding: 0.3rem 0.6rem;
+    }
+  }
+</style>
+</head>
+<body>
+<header>
+  AI-Powered Resume Detection System
+</header>
+<main>
+  <section class="card" aria-label="File Upload Section">
+    <form id="uploadForm" aria-describedby="uploadInstructions">
+      <label for="resumeUpload">
+        Upload your resume (PDF or DOCX)
+        <span class="material-icons-outlined" aria-hidden="true">upload_file</span>
+      </label>
+      <input type="file" id="resumeUpload" name="resume" accept=".pdf, .docx" required aria-required="true" />
+      <div class="file-info" id="fileInfo" aria-live="polite"></div>
+      <button type="submit" id="submitBtn" disabled>
+        Analyze Resume
+        <span class="material-icons-outlined" aria-hidden="true">send</span>
+      </button>
+      <p id="uploadInstructions" style="margin-top: 0.75rem; color: #6b7280; font-size: 0.9rem;">
+        Supported formats: PDF, DOCX | Max file size: 50 MB
+      </p>
+    </form>
+    <div id="loadingSpinner" role="status" aria-live="polite" aria-label="Loading">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-loader" viewBox="0 0 24 24"><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line></svg>
+    </div>
+  </section>
+
+  <section class="card" id="resultSection" hidden aria-live="polite" aria-atomic="true">
+    <h2>Detection Result</h2>
+    <p id="resultSummary" class="" aria-live="polite"></p>
+
+    <h3>Parsed Resume Text</h3>
+    <pre id="parsedText" tabindex="0" aria-label="Parsed resume text"></pre>
+
+    <h3>Top Keywords</h3>
+    <ul id="keywordsList" aria-label="List of top keywords"></ul>
+
+    <div id="searchArea">
+      <label for="searchKeyword"><h4>Search Keywords in Resume</h4></label>
+      <input type="text" id="searchKeyword" aria-describedby="searchHelp" placeholder="Enter keyword to search" disabled />
+      <p id="searchHelp" style="color: #6b7280; font-size: 0.85rem;">Matches will be highlighted in the text below.</p>
+      <pre id="highlightedText" tabindex="0" aria-label="Resume text with search highlights"></pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  AI-Powered Resume Detection System — Developed with Flask & Modern Frontend
+</footer>
+
+<script>
+  const uploadForm = document.getElementById('uploadForm');
+  const fileInput = document.getElementById('resumeUpload');
+  const loadingSpinner = document.getElementById('loadingSpinner');
+  const resultSection = document.getElementById('resultSection');
+  const resultSummary = document.getElementById('resultSummary');
+  const parsedText = document.getElementById('parsedText');
+  const keywordsList = document.getElementById('keywordsList');
+  const searchKeyword = document.getElementById('searchKeyword');
+  const highlightedText = document.getElementById('highlightedText');
+  const fileInfo = document.getElementById('fileInfo');
+  const submitBtn = document.getElementById('submitBtn');
+
+  const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB
+
+  // Escape HTML to prevent XSS
+  function escapeHtml(text) {
+    return text.replace(/[&<>"']/g, function(m) {
+      switch(m) {
+        case '&': return '&amp;';
+        case '<': return '&lt;';
+        case '>': return '&gt;';
+        case '"': return '&quot;';
+        case "'": return '&#39;';
+        default: return m;
+      }
+    });
+  }
+
+  // Highlight all occurrences of a keyword in text (case-insensitive)
+  function highlightKeyword(text, keyword) {
+    if (!keyword.trim()) return escapeHtml(text);
+    const re = new RegExp(`(${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    return escapeHtml(text).replace(re, '<mark>$1</mark>');
+  }
+
+  function formatBytes(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const dm = 2;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+  }
+
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files[0];
+    if (!file) {
+      fileInfo.textContent = '';
+      submitBtn.disabled = true;
+      return;
+    }
+    // Show file size info
+    fileInfo.textContent = `Selected file: ${file.name} (${formatBytes(file.size)})`;
+
+    // Validate file size
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      fileInfo.textContent += ' — File size exceeds maximum allowed (50 MB). Please select a smaller file.';
+      submitBtn.disabled = true;
+    } else {
+      submitBtn.disabled = false;
+    }
+  });
+
+  uploadForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    if (!fileInput.files.length) {
+      alert('Please select a resume file.');
+      return;
+    }
+
+    // Final size validation before sending
+    const file = fileInput.files[0];
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      alert('File size exceeds 50 MB limit. Please select a smaller file.');
+      return;
+    }
+
+    // Reset display and show loading spinner
+    resultSection.hidden = true;
+    loadingSpinner.classList.add('visible');
+    resultSummary.textContent = '';
+    parsedText.textContent = '';
+    keywordsList.innerHTML = '';
+    highlightedText.textContent = '';
+    searchKeyword.value = '';
+    searchKeyword.disabled = true;
+
+    const formData = new FormData();
+    formData.append('resume', file);
+
+    try {
+      const resp = await fetch('http://127.0.0.1:5000/api/upload_resume', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!resp.ok) {
+        let errJson = {};
+        try {
+          errJson = await resp.json();
+        } catch {}
+        throw new Error(errJson.error || 'Error uploading and processing resume.');
+      }
+
+      const data = await resp.json();
+
+      loadingSpinner.classList.remove('visible');
+      resultSection.hidden = false;
+
+      // Show detection result
+      if (data.prediction === 1) {
+        resultSummary.textContent = `${data.label} (Confidence: ${(data.confidence * 100).toFixed(1)}%)`;
+        resultSummary.className = 'good-fit';
+      } else {
+        resultSummary.textContent = `${data.label} (Confidence: ${(data.confidence * 100).toFixed(1)}%)`;
+        resultSummary.className = 'not-fit';
+      }
+
+      // Show parsed text
+      parsedText.textContent = data.text;
+
+      // Show keywords
+      keywordsList.innerHTML = '';
+      data.keywords.forEach(({keyword, count}) => {
+        const li = document.createElement('li');
+        li.textContent = `${keyword} (${count})`;
+        keywordsList.appendChild(li);
+      });
+
+      // Prepare highlightedText initial content
+      highlightedText.innerHTML = escapeHtml(data.text);
+
+      // Enable search input
+      searchKeyword.disabled = false;
+      searchKeyword.focus();
+    } catch (err) {
+      loadingSpinner.classList.remove('visible');
+      alert(`Error: ${err.message}`);
+    }
+  });
+
+  // Search in resume text and highlight matches
+  searchKeyword.addEventListener('input', () => {
+    const keyword = searchKeyword.value.trim();
+    if (!keyword) {
+      highlightedText.innerHTML = escapeHtml(parsedText.textContent);
+      return;
+    }
+    highlightedText.innerHTML = highlightKeyword(parsedText.textContent, keyword);
+  });
+</script>
+</body>
+</html>
+
+pip install flask flask-cors spacy pdfminer.six docx2txt scikit-learn numpy
+
+venv\Scripts\activate
